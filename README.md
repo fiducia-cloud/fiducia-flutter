@@ -27,14 +27,18 @@ and honest claim boundary. Delivery is tracked by DEN-3971.
 ## Develop
 
 ```sh
-flutter pub get
-dart format --output=none --set-exit-if-changed lib test
-flutter analyze
-flutter test
-flutter build apk --debug
-flutter build macos --debug
+zed install --frozen
+zed validate --require-lock
+zed run flutter pub get
+zed run dart format --output=none --set-exit-if-changed lib test
+zed run flutter analyze
+zed run flutter test
+zed run flutter build apk --debug
+zed run flutter build macos --debug
 ```
 
 The generated project also carries iOS, Linux, and Windows platform shells.
 Build those on their native supported hosts before release. This repository is
-not published to pub.dev.
+not published to pub.dev. The Zed package has no cross-repository dependency
+yet; its committed lock is therefore intentionally empty and makes that
+boundary explicit and frozen.
