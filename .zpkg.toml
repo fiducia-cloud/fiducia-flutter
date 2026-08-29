@@ -1,0 +1,24 @@
+[package]
+org = "fiducia-cloud"
+name = "fiducia-flutter"
+version = "0.1.0"
+description = "Formally specified Fiducia mobile and cross-platform desktop client"
+license = "AGPL-3.0-or-later"
+keywords = ["flutter", "dart", "desktop", "mobile", "formal-methods"]
+language = "dart"
+
+[package.repository]
+vcs = "git"
+url = "https://github.com/fiducia-cloud/fiducia-flutter"
+
+[install]
+adapter = "none"
+dir = ".vendor/.zed"
+
+[publish]
+include_readme = true
+tag_format = "v{version}"
+exclude = [".env", ".env.*", ".dart_tool/**", ".formal-artifacts/**", ".vendor/.zed/**", ".zed/**", ".zed-pack/**", ".idea/**", "_apalache-out/**", "**/*.iml", ".flutter-plugins-dependencies", "android/.gradle/**", "android/app/src/main/java/**", "android/gradle/wrapper/gradle-wrapper.jar", "android/gradlew", "android/gradlew.bat", "android/local.properties", "ios/Flutter/Generated.xcconfig", "ios/Flutter/ephemeral/**", "ios/Flutter/flutter_export_environment.sh", "ios/Runner/GeneratedPluginRegistrant.*", "macos/Flutter/ephemeral/**", "build/**", "tmp/**", "**/*.log", ".DS_Store"]
+
+[scripts]
+test = "dart format --output=none --set-exit-if-changed lib test && flutter analyze && flutter test"
