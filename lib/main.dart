@@ -1,13 +1,21 @@
 import 'dart:async';
 
+import 'package:app_links/app_links.dart';
 import 'package:flutter/material.dart';
 
 import 'src/app/app_lifecycle_machine.dart';
+import 'src/app/deep_link_admission.dart';
 
-void main() => runApp(const FiduciaApp());
+void main() {
+  WidgetsFlutterBinding.ensureInitialized();
+  final appLinks = AppLinks();
+  runApp(FiduciaApp(linkStream: appLinks.stringLinkStream));
+}
 
 class FiduciaApp extends StatelessWidget {
-  const FiduciaApp({super.key});
+  const FiduciaApp({super.key, this.linkStream});
+
+  final Stream<String>? linkStream;
 
   @override
   Widget build(BuildContext context) => MaterialApp(
@@ -20,14 +28,16 @@ class FiduciaApp extends StatelessWidget {
       scaffoldBackgroundColor: const Color(0xff071411),
       useMaterial3: true,
     ),
-    home: const LifecycleConsole(),
+    home: LifecycleConsole(linkStream: linkStream),
   );
 }
 
 /// Thin demonstration shell. Real platform/auth/API adapters replace
 /// [_runEffect], but they may never mutate application state directly.
 class LifecycleConsole extends StatefulWidget {
-  const LifecycleConsole({super.key});
+  const LifecycleConsole({super.key, this.linkStream});
+
+  final Stream<String>? linkStream;
 
   @override
   State<LifecycleConsole> createState() => _LifecycleConsoleState();
@@ -35,12 +45,81 @@ class LifecycleConsole extends StatefulWidget {
 
 class _LifecycleConsoleState extends State<LifecycleConsole> {
   final AppLifecycleMachine _machine = AppLifecycleMachine();
+  final DeepLinkAdmissionMachine _deepLinks = DeepLinkAdmissionMachine();
   final List<String> _audit = <String>[];
+  StreamSubscription<String>? _linkSubscription;
+  bool _handoffScheduled = false;
 
   @override
   void initState() {
     super.initState();
+    _linkSubscription = widget.linkStream?.listen(
+      _captureDeepLink,
+      onError: (Object error, StackTrace stackTrace) {
+        if (!mounted) return;
+        setState(() {
+          _audit.insert(0, 'deepLink: rejected — platform stream error');
+        });
+      },
+    );
     scheduleMicrotask(() => _dispatch(const AppEvent.launchRequested()));
+  }
+
+  @override
+  void dispose() {
+    unawaited(_linkSubscription?.cancel());
+    super.dispose();
+  }
+
+  void _captureDeepLink(String raw) {
+    final begin = _deepLinks.begin(raw);
+    _recordDeepLink(begin);
+    final effect = begin.effect;
+    if (effect == null) return;
+    scheduleMicrotask(() {
+      if (!mounted) return;
+      final completed = _deepLinks.complete(effect.generation);
+      _recordDeepLink(completed);
+      _scheduleDeepLinkHandoff();
+    });
+  }
+
+  void _recordDeepLink(DeepLinkTransition transition) {
+    if (!mounted) return;
+    setState(() {
+      _audit.insert(
+        0,
+        'deepLink: ${transition.disposition.name} — '
+        '${transition.reason.wireName}',
+      );
+      if (_audit.length > 8) _audit.removeLast();
+    });
+  }
+
+  void _scheduleDeepLinkHandoff() {
+    if (_handoffScheduled ||
+        !_deepLinks.snapshot.canHandoff ||
+        !_machine.snapshot.capabilities.canRequestPrivilegedAction) {
+      return;
+    }
+    _handoffScheduled = true;
+    scheduleMicrotask(() {
+      _handoffScheduled = false;
+      if (!mounted || !_deepLinks.snapshot.canHandoff) return;
+      final handoff = _deepLinks.handoffTo(_machine);
+      _recordDeepLink(handoff.admission);
+      if (handoff.lifecycle != null) {
+        setState(() {
+          _audit.insert(
+            0,
+            'deepLink lifecycle: '
+            '${handoff.lifecycle!.disposition.name} — '
+            '${handoff.lifecycle!.reason}',
+          );
+          if (_audit.length > 8) _audit.removeLast();
+        });
+      }
+    });
   }
 
   void _dispatch(AppEvent event) {
@@ -56,6 +135,7 @@ class _LifecycleConsoleState extends State<LifecycleConsole> {
     });
     final effect = transition.effect;
     if (effect != null) unawaited(_runEffect(effect));
+    _scheduleDeepLinkHandoff();
   }
 
   Future<void> _runEffect(AppEffect effect) async {
@@ -110,6 +190,12 @@ class _LifecycleConsoleState extends State<LifecycleConsole> {
           padding: const EdgeInsets.all(20),
           children: <Widget>[
             _StateCard(snapshot: snapshot),
+            const SizedBox(height: 8),
+            Text(
+              'deep link ${_deepLinks.snapshot.phase.name} · '
+              'generation ${_deepLinks.snapshot.generation} · '
+              'last ${_deepLinks.snapshot.lastAccepted?.action ?? 'none'}',
+            ),
             const SizedBox(height: 16),
             Wrap(
               spacing: 10,
