@@ -50,6 +50,14 @@ jobs:
               "    validateFiduciaJson(schema, payload);",
               "    _validateSubmissionShape(schema, payload);",
           )
+          for before, after in {
+              "'Under $500/month'": "'Under \\$500/month'",
+              "'$500–$2,000/month'": "'\\$500–\\$2,000/month'",
+              "'$2,000–$10,000/month'": "'\\$2,000–\\$10,000/month'",
+              "'$10,000–$50,000/month'": "'\\$10,000–\\$50,000/month'",
+              "'$50,000+/month'": "'\\$50,000+/month'",
+          }.items():
+              text = text.replace(before, after)
           marker = "final class CommercialIntakeException implements Exception {"
           helpers = r'''void _validateSubmissionShape(
             String schema,
