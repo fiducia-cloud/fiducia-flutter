@@ -10,6 +10,21 @@ controls from `AppSnapshot`, while platform/auth/network adapters may only run
 an emitted `AppEffect` and return a typed `AppEvent`. They cannot directly
 mutate session, tenant, connectivity, or protected-action state.
 
+## Commercial intake
+
+The customer shell includes a separate commercial-intake journey for a
+non-binding quote, pre-interest registration, a detailed enterprise
+application, support qualification, and requested SLO/SLA terms. The journey
+submits only to the configured Fiducia API origin, requires an idempotency key,
+rejects redirects and credential-shaped material, and does not modify the
+normative application lifecycle machine.
+
+Pricing, support coverage, requested service levels, compliance selections,
+and customer contract terms remain intake preferences. They become binding
+only after human review and a signed order form. Production submissions remain
+disabled until the API, private storage migration, origin TLS, and synthetic
+no-PII canaries are independently approved.
+
 ## Safety contract
 
 - Offline mode is read-only.
@@ -25,7 +40,7 @@ mutate session, tenant, connectivity, or protected-action state.
 
 See `docs/FORMAL_METHODS.md`, `docs/DEEP_LINKS.md`, and `formal/README.md` for
 the models, proof bounds, and honest claim boundary. Delivery is tracked by
-DEN-3971.
+DEN-3971 and the commercial launch contract by DEN-1390.
 
 ## Develop
 
