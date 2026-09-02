@@ -184,7 +184,7 @@ class _JourneyCard extends StatelessWidget {
   );
 }
 
-abstract base class _SubmittingState<T extends StatefulWidget> extends State<T> {
+abstract class _SubmittingState<T extends StatefulWidget> extends State<T> {
   final CommercialIntakeClient client = CommercialIntakeClient();
   bool submitting = false;
   Map<String, Object?>? receipt;
