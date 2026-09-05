@@ -58,3 +58,6 @@ tmp/worktrees/
 # Local temporary directories and Git worktrees (DEN-3956).
 tmp/
 temp/
+# Explicit worktree paths are retained for tools that inspect path rules
+# literally instead of matching the parent directory pattern.
+temp/worktrees/
