@@ -1,0 +1,262 @@
+name: Temporary commercial intake Flutter verification
+
+on:
+  push:
+    branches:
+      - alexander-mills/den-1390-commercial-intake-flutter
+
+permissions:
+  contents: write
+
+jobs:
+  verify:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.ref_name }}
+          persist-credentials: true
+      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
+        with:
+          flutter-version: '3.44.2'
+          channel: stable
+          cache: true
+      - name: Wire the customer surface without changing the lifecycle machine
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          pubspec = Path('pubspec.yaml')
+          text = pubspec.read_text()
+          text = text.replace(
+              "  fiducia_interfaces:\n"
+              "    git:\n"
+              "      url: https://github.com/fiducia-cloud/fiducia-interfaces.git\n"
+              "      ref: fbc1c5b308d63c3aece62ca09fa4a8f56fb62c5f\n"
+              "      path: generated/dart\n",
+              "",
+          )
+          pubspec.write_text(text)
+
+          commercial = Path('lib/src/commercial/commercial_intake.dart')
+          text = commercial.read_text()
+          text = text.replace(
+              "import 'package:fiducia_interfaces/fiducia_interfaces.dart';\n",
+              "",
+          )
+          text = text.replace(
+              "    validateFiduciaJson(schema, payload);",
+              "    _validateSubmissionShape(schema, payload);",
+          )
+          for before, after in {
+              "'Under $500/month'": "'Under \\$500/month'",
+              "'$500–$2,000/month'": "'\\$500–\\$2,000/month'",
+              "'$2,000–$10,000/month'": "'\\$2,000–\\$10,000/month'",
+              "'$10,000–$50,000/month'": "'\\$10,000–\\$50,000/month'",
+              "'$50,000+/month'": "'\\$50,000+/month'",
+          }.items():
+              text = text.replace(before, after)
+          marker = "final class CommercialIntakeException implements Exception {"
+          helpers = r'''void _validateSubmissionShape(
+            String schema,
+            Map<String, Object?> payload,
+          ) {
+            const required = <String, Set<String>>{
+              'QuoteRequest': <String>{
+                'contact',
+                'organization',
+                'capabilities',
+                'deployment_model',
+                'support_plan',
+                'acknowledges_non_binding_estimate',
+                'acknowledges_no_secrets',
+                'privacy_notice_accepted',
+              },
+              'PreInterestRequest': <String>{
+                'contact',
+                'organization',
+                'use_case_summary',
+                'capabilities',
+                'desired_start_window',
+                'support_plan',
+                'acknowledges_no_secrets',
+                'privacy_notice_accepted',
+              },
+              'EnterpriseApplicationRequest': <String>{
+                'primary_contact',
+                'organization',
+                'project',
+                'technical',
+                'security',
+                'support',
+                'service_levels',
+                'procurement',
+                'commercial',
+                'authorized_to_submit',
+                'acknowledges_requested_terms_are_non_binding',
+                'acknowledges_no_credentials_or_secrets',
+                'privacy_notice_accepted',
+              },
+            };
+            final requiredFields = required[schema];
+            if (requiredFields == null) {
+              throw FormatException('Unsupported commercial contract: $schema');
+            }
+            final missing = requiredFields.difference(payload.keys.toSet());
+            if (missing.isNotEmpty) {
+              throw FormatException(
+                'Missing required commercial fields: ${missing.join(', ')}',
+              );
+            }
+            final bytes = utf8.encode(jsonEncode(payload));
+            if (bytes.length > 65536) {
+              throw const FormatException(
+                'The commercial submission exceeds the 64 KiB mobile limit.',
+              );
+            }
+            _rejectProhibitedMaterial(payload);
+          }
+
+          void _rejectProhibitedMaterial(Object? value) {
+            const markers = <String>{
+              'ghp_',
+              'lin_api_',
+              'postgres://',
+              'postgresql://',
+              '-----begin private key',
+              'password=',
+              'api_key=',
+              'access_token=',
+              'recovery phrase',
+            };
+            if (value is Map) {
+              for (final entry in value.entries) {
+                final key = entry.key.toString().toLowerCase();
+                if (<String>{
+                  'password',
+                  'passwd',
+                  'api_key',
+                  'private_key',
+                  'access_token',
+                  'refresh_token',
+                  'service_role_key',
+                  'connection_string',
+                  'database_url',
+                  'otp',
+                  'recovery_phrase',
+                  'seed_phrase',
+                }.contains(key)) {
+                  throw const FormatException(
+                    'Credentials and secrets are not accepted.',
+                  );
+                }
+                _rejectProhibitedMaterial(entry.value);
+              }
+            } else if (value is Iterable) {
+              for (final item in value) {
+                _rejectProhibitedMaterial(item);
+              }
+            } else if (value is String) {
+              final normalized = value.toLowerCase();
+              if (markers.any(normalized.contains)) {
+                throw const FormatException(
+                  'Credentials and secrets are not accepted.',
+                );
+              }
+            }
+          }
+
+          '''
+          if helpers not in text:
+              text = text.replace(marker, helpers + marker)
+          text = text.replace(
+              "  const _FormScaffold({\n"
+              "    required this.title,\n"
+              "    required this.notice,\n"
+              "    required this.children,\n"
+              "  });",
+              "  const _FormScaffold({\n"
+              "    required this.formKey,\n"
+              "    required this.title,\n"
+              "    required this.notice,\n"
+              "    required this.children,\n"
+              "  });",
+          )
+          text = text.replace(
+              "  final String title;\n  final String notice;\n  final List<Widget> children;",
+              "  final GlobalKey<FormState> formKey;\n"
+              "  final String title;\n"
+              "  final String notice;\n"
+              "  final List<Widget> children;",
+          )
+          text = text.replace(
+              "    final formState = context.findAncestorStateOfType<State<StatefulWidget>>();\n"
+              "    final formKey = switch (formState) {\n"
+              "      _QuotePageState state => state.formKey,\n"
+              "      _PreInterestPageState state => state.formKey,\n"
+              "      _EnterpriseApplicationPageState state => state.formKey,\n"
+              "      _ => GlobalKey<FormState>(),\n"
+              "    };\n",
+              "",
+          )
+          text = text.replace(
+              "=> _FormScaffold(\n    title:",
+              "=> _FormScaffold(\n    formKey: formKey,\n    title:",
+          )
+          commercial.write_text(text)
+
+          main = Path('lib/main.dart')
+          text = main.read_text()
+          text = text.replace(
+              "import 'src/app/deep_link_admission.dart';\n",
+              "import 'src/app/deep_link_admission.dart';\n"
+              "import 'src/commercial/commercial_intake.dart';\n",
+          )
+          text = text.replace(
+              "        backgroundColor: Colors.transparent,\n      ),",
+              "        backgroundColor: Colors.transparent,\n"
+              "        actions: <Widget>[\n"
+              "          IconButton(\n"
+              "            key: const ValueKey<String>('fiducia-commercial-intake'),\n"
+              "            tooltip: 'Quote, interest, application, and support',\n"
+              "            onPressed: () => Navigator.of(context).push(\n"
+              "              MaterialPageRoute<void>(\n"
+              "                builder: (_) => const CommercialIntakeHub(),\n"
+              "              ),\n"
+              "            ),\n"
+              "            icon: const Icon(Icons.business_center_outlined),\n"
+              "          ),\n"
+              "        ],\n"
+              "      ),",
+          )
+          main.write_text(text)
+          PY
+      - name: Resolve Flutter dependencies
+        run: flutter pub get
+      - name: Apply canonical Dart formatting
+        run: dart format lib test
+      - name: Analyze the application
+        run: flutter analyze
+      - name: Run lifecycle and commercial widget tests
+        run: flutter test
+      - name: Build Android debug application
+        run: flutter build apk --debug
+      - name: Prove the formal lifecycle machine was not modified
+        run: |
+          git diff --exit-code "${{ github.event.before }}" -- \
+            formal/ \
+            contracts/ \
+            lib/src/app/app_lifecycle_machine.dart \
+            lib/src/app/deep_link_admission.dart
+      - name: Commit verified mobile customer surface
+        run: |
+          rm .github/workflows/_temporary_commercial_intake_flutter_verify.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add pubspec.yaml pubspec.lock lib/main.dart lib/src/commercial/commercial_intake.dart test/commercial_intake_test.dart
+          git add -u .github/workflows/_temporary_commercial_intake_flutter_verify.yml
+          git diff --cached --check
+          git commit -m 'chore(intake): format and verify Flutter customer surface'
+          git push origin "HEAD:${GITHUB_REF_NAME}"
