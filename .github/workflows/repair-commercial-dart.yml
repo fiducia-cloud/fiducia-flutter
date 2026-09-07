@@ -1,0 +1,92 @@
+name: One-shot commercial Dart repair
+
+on:
+  push:
+    branches:
+      - fix/DEN-2843-android-release-signing
+    paths:
+      - '.github/workflows/repair-commercial-dart.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: repair-commercial-dart-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  repair:
+    if: >-
+      github.repository == 'fiducia-cloud/fiducia-flutter' &&
+      github.ref == 'refs/heads/fix/DEN-2843-android-release-signing'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out the exact branch head
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: fix/DEN-2843-android-release-signing
+          fetch-depth: 1
+
+      - name: Install Flutter
+        uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2
+        with:
+          flutter-version: '3.44.2'
+          channel: stable
+          cache: true
+
+      - name: Apply only the five parser repairs
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path('lib/src/commercial/commercial_intake.dart')
+          source = path.read_text(encoding='utf-8')
+          replacements = {
+              "'Under $500/month'": r"'Under \$500/month'",
+              "'$500–$2,000/month'": r"'\$500–\$2,000/month'",
+              "'$2,000–$10,000/month'": r"'\$2,000–\$10,000/month'",
+              "'$10,000–$50,000/month'": r"'\$10,000–\$50,000/month'",
+              "'$50,000+/month'": r"'\$50,000+/month'",
+          }
+          for old, new in replacements.items():
+              count = source.count(old)
+              if count != 1:
+                  raise SystemExit(f'expected exactly one occurrence of {old!r}, found {count}')
+              source = source.replace(old, new)
+          path.write_text(source, encoding='utf-8')
+          PY
+
+      - name: Canonically format and verify the Dart tree
+        shell: bash
+        run: |
+          set -euo pipefail
+          flutter pub get --enforce-lockfile
+          dart format lib/src/commercial/commercial_intake.dart test/commercial_intake_test.dart
+          dart format --output=none --set-exit-if-changed lib test
+          flutter analyze
+          flutter test
+          git diff --check
+
+      - name: Commit only the repaired Dart files and remove this workflow
+        shell: bash
+        env:
+          BRANCH_NAME: fix/DEN-2843-android-release-signing
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -- \
+            lib/src/commercial/commercial_intake.dart \
+            test/commercial_intake_test.dart
+          git rm -- .github/workflows/repair-commercial-dart.yml
+          git diff --cached --check
+          git diff --cached --quiet && {
+            echo 'The one-shot repair produced no staged change.' >&2
+            exit 1
+          }
+          git commit -m 'fix(DEN-2843): repair commercial intake Dart source'
+          git push origin "HEAD:${BRANCH_NAME}"
