@@ -1,0 +1,149 @@
+name: Android release signing contract
+
+on:
+  pull_request:
+    paths:
+      - 'android/app/build.gradle.kts'
+      - 'tool/android-release-signing.test.mjs'
+      - '.github/workflows/android-release-signing.yml'
+      - '.github/workflows/android-production-aab.yml'
+      - 'docs/android-release-signing.md'
+      - 'pubspec.yaml'
+      - 'pubspec.lock'
+  push:
+    branches: [main]
+    paths:
+      - 'android/app/build.gradle.kts'
+      - 'tool/android-release-signing.test.mjs'
+      - '.github/workflows/android-release-signing.yml'
+      - '.github/workflows/android-production-aab.yml'
+      - 'docs/android-release-signing.md'
+      - 'pubspec.yaml'
+      - 'pubspec.lock'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: android-release-signing-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: Fail-closed Android signing
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Install Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '22'
+
+      - name: Run dependency-free signing contract tests
+        run: node --test tool/android-release-signing.test.mjs
+
+      - name: Install Java
+        uses: actions/setup-java@c1e323688fd81a25caa38c78aa6df2d33d3e20d9 # v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Install Flutter
+        uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2
+        with:
+          flutter-version: '3.44.2'
+          channel: stable
+          cache: true
+
+      - name: Resolve locked dependencies
+        run: flutter pub get --enforce-lockfile
+
+      - name: Prove ordinary debug builds need no release credentials
+        run: flutter build apk --debug
+
+      - name: Prove release builds fail closed without credentials
+        shell: bash
+        run: |
+          set -euo pipefail
+          unset FIDUCIA_ANDROID_KEYSTORE_PATH
+          unset FIDUCIA_ANDROID_KEYSTORE_PASSWORD
+          unset FIDUCIA_ANDROID_KEY_ALIAS
+          unset FIDUCIA_ANDROID_KEY_PASSWORD
+          unset FIDUCIA_ANDROID_CERT_SHA256
+          log="$RUNNER_TEMP/unsigned-release.log"
+          if flutter build appbundle --release >"$log" 2>&1; then
+            cat "$log"
+            echo 'Release build unexpectedly succeeded without signing material.' >&2
+            exit 1
+          fi
+          grep -F \
+            'DEN-2843: Android release signing requires non-blank FIDUCIA_ANDROID_KEYSTORE_PATH' \
+            "$log"
+
+      - name: Generate an ephemeral CI-only signing identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          keystore="$RUNNER_TEMP/fiducia-ci-release.p12"
+          alias_name='fiducia-ci-release'
+          password="$(openssl rand -hex 24)"
+          echo "::add-mask::$password"
+          keytool -genkeypair \
+            -keystore "$keystore" \
+            -storetype PKCS12 \
+            -storepass "$password" \
+            -keypass "$password" \
+            -alias "$alias_name" \
+            -keyalg RSA \
+            -keysize 2048 \
+            -validity 2 \
+            -dname 'CN=CI Only, OU=Testing, O=Fiducia, L=Test, ST=Test, C=US' \
+            -noprompt
+          fingerprint="$(
+            keytool -list -v \
+              -keystore "$keystore" \
+              -storepass "$password" \
+              -alias "$alias_name" |
+              sed -n 's/^[[:space:]]*SHA256: //p' |
+              head -n 1 |
+              tr -d ':[:space:]' |
+              tr '[:lower:]' '[:upper:]'
+          )"
+          [[ "$fingerprint" =~ ^[0-9A-F]{64}$ ]]
+          {
+            printf 'FIDUCIA_ANDROID_KEYSTORE_PATH=%s\n' "$keystore"
+            printf 'FIDUCIA_ANDROID_KEYSTORE_PASSWORD=%s\n' "$password"
+            printf 'FIDUCIA_ANDROID_KEY_ALIAS=%s\n' "$alias_name"
+            printf 'FIDUCIA_ANDROID_KEY_PASSWORD=%s\n' "$password"
+            printf 'FIDUCIA_ANDROID_CERT_SHA256=%s\n' "$fingerprint"
+          } >> "$GITHUB_ENV"
+
+      - name: Build a release AAB with the ephemeral identity
+        run: flutter build appbundle --release
+
+      - name: Verify the AAB signature and certificate fingerprint
+        shell: bash
+        run: |
+          set -euo pipefail
+          aab='build/app/outputs/bundle/release/app-release.aab'
+          test -s "$aab"
+          jarsigner -verify -verbose -certs "$aab" > "$RUNNER_TEMP/jarsigner-verify.txt"
+          actual="$(
+            keytool -printcert -jarfile "$aab" |
+              sed -n 's/^[[:space:]]*SHA256: //p' |
+              head -n 1 |
+              tr -d ':[:space:]' |
+              tr '[:lower:]' '[:upper:]'
+          )"
+          test "$actual" = "$FIDUCIA_ANDROID_CERT_SHA256"
+
+      - name: Remove the ephemeral keystore
+        if: always()
+        shell: bash
+        run: rm -f "${FIDUCIA_ANDROID_KEYSTORE_PATH:-$RUNNER_TEMP/fiducia-ci-release.p12}"
