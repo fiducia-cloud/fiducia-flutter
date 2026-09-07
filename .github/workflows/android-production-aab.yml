@@ -1,0 +1,139 @@
+name: Android production AAB
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: android-production-aab
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build and attest production AAB
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    environment: android-production
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Install Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '22'
+
+      - name: Recheck the dependency-free signing contract
+        run: node --test tool/android-release-signing.test.mjs
+
+      - name: Install Java
+        uses: actions/setup-java@c1e323688fd81a25caa38c78aa6df2d33d3e20d9 # v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Install Flutter
+        uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2
+        with:
+          flutter-version: '3.44.2'
+          channel: stable
+          cache: true
+
+      - name: Resolve locked dependencies
+        run: flutter pub get --enforce-lockfile
+
+      - name: Decode protected signing material
+        id: signing
+        shell: bash
+        env:
+          FIDUCIA_ANDROID_KEYSTORE_BASE64: ${{ secrets.FIDUCIA_ANDROID_KEYSTORE_BASE64 }}
+          FIDUCIA_ANDROID_KEYSTORE_PASSWORD: ${{ secrets.FIDUCIA_ANDROID_KEYSTORE_PASSWORD }}
+          FIDUCIA_ANDROID_KEY_ALIAS: ${{ secrets.FIDUCIA_ANDROID_KEY_ALIAS }}
+          FIDUCIA_ANDROID_KEY_PASSWORD: ${{ secrets.FIDUCIA_ANDROID_KEY_PASSWORD }}
+          FIDUCIA_ANDROID_EXPECTED_SHA256: ${{ vars.FIDUCIA_ANDROID_EXPECTED_SHA256 }}
+        run: |
+          set -euo pipefail
+          for name in \
+            FIDUCIA_ANDROID_KEYSTORE_BASE64 \
+            FIDUCIA_ANDROID_KEYSTORE_PASSWORD \
+            FIDUCIA_ANDROID_KEY_ALIAS \
+            FIDUCIA_ANDROID_KEY_PASSWORD \
+            FIDUCIA_ANDROID_EXPECTED_SHA256
+          do
+            if test -z "${!name:-}"; then
+              echo "Protected environment value $name is missing or blank." >&2
+              exit 1
+            fi
+          done
+          expected="$(
+            printf '%s' "$FIDUCIA_ANDROID_EXPECTED_SHA256" |
+              tr -d ':[:space:]' |
+              tr '[:lower:]' '[:upper:]'
+          )"
+          [[ "$expected" =~ ^[0-9A-F]{64}$ ]]
+          keystore="$RUNNER_TEMP/fiducia-production-release.keystore"
+          printf '%s' "$FIDUCIA_ANDROID_KEYSTORE_BASE64" | base64 --decode > "$keystore"
+          chmod 600 "$keystore"
+          test -s "$keystore"
+          printf 'keystore=%s\n' "$keystore" >> "$GITHUB_OUTPUT"
+
+      - name: Build the signed production AAB
+        env:
+          FIDUCIA_ANDROID_KEYSTORE_PATH: ${{ steps.signing.outputs.keystore }}
+          FIDUCIA_ANDROID_KEYSTORE_PASSWORD: ${{ secrets.FIDUCIA_ANDROID_KEYSTORE_PASSWORD }}
+          FIDUCIA_ANDROID_KEY_ALIAS: ${{ secrets.FIDUCIA_ANDROID_KEY_ALIAS }}
+          FIDUCIA_ANDROID_KEY_PASSWORD: ${{ secrets.FIDUCIA_ANDROID_KEY_PASSWORD }}
+          FIDUCIA_ANDROID_CERT_SHA256: ${{ vars.FIDUCIA_ANDROID_EXPECTED_SHA256 }}
+        run: flutter build appbundle --release
+
+      - name: Verify signature and record non-secret provenance
+        shell: bash
+        env:
+          FIDUCIA_ANDROID_EXPECTED_SHA256: ${{ vars.FIDUCIA_ANDROID_EXPECTED_SHA256 }}
+        run: |
+          set -euo pipefail
+          aab='build/app/outputs/bundle/release/app-release.aab'
+          evidence="$RUNNER_TEMP/android-release-evidence"
+          mkdir -p "$evidence"
+          test -s "$aab"
+          jarsigner -verify -verbose -certs "$aab" > "$evidence/jarsigner-verify.txt"
+          actual="$(
+            keytool -printcert -jarfile "$aab" |
+              sed -n 's/^[[:space:]]*SHA256: //p' |
+              head -n 1 |
+              tr -d ':[:space:]' |
+              tr '[:lower:]' '[:upper:]'
+          )"
+          expected="$(
+            printf '%s' "$FIDUCIA_ANDROID_EXPECTED_SHA256" |
+              tr -d ':[:space:]' |
+              tr '[:lower:]' '[:upper:]'
+          )"
+          [[ "$actual" =~ ^[0-9A-F]{64}$ ]]
+          test "$actual" = "$expected"
+          sha256sum "$aab" > "$evidence/app-release.aab.sha256"
+          {
+            printf 'commit=%s\n' "$GITHUB_SHA"
+            printf 'workflow-run=%s/%s/actions/runs/%s\n' \
+              "$GITHUB_SERVER_URL" "$GITHUB_REPOSITORY" "$GITHUB_RUN_ID"
+            printf 'certificate-sha256=%s\n' "$actual"
+          } > "$evidence/provenance.txt"
+
+      - name: Upload signed AAB and provenance
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: fiducia-android-production-aab-${{ github.run_id }}
+          path: |
+            build/app/outputs/bundle/release/app-release.aab
+            ${{ runner.temp }}/android-release-evidence
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Remove decoded signing material
+        if: always()
+        shell: bash
+        run: rm -f '${{ steps.signing.outputs.keystore }}'
