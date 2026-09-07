@@ -61,8 +61,21 @@ jobs:
           channel: stable
           cache: true
 
-      - name: Resolve locked dependencies
-        run: flutter pub get --enforce-lockfile
+      - name: Generate and print the deterministic lockfile repair
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp pubspec.lock "$RUNNER_TEMP/pubspec.lock.before"
+          flutter pub get
+          if cmp -s "$RUNNER_TEMP/pubspec.lock.before" pubspec.lock; then
+            echo 'pubspec.lock was already current.'
+            exit 0
+          fi
+          echo '--- BEGIN PUBSPEC LOCK DIFF ---'
+          diff -u "$RUNNER_TEMP/pubspec.lock.before" pubspec.lock || true
+          echo '--- END PUBSPEC LOCK DIFF ---'
+          echo 'Commit the generated lockfile before running signing builds.' >&2
+          exit 1
 
       - name: Prove ordinary debug builds need no release credentials
         run: flutter build apk --debug
