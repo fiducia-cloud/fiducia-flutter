@@ -57,7 +57,8 @@ test('PR verification proves both the missing-secret failure and a signed test A
   assert.match(workflow, /flutter build appbundle --release/);
   assert.match(workflow, /flutter build apk --debug/);
   assert.match(workflow, /keytool -genkeypair/);
-  assert.match(workflow, /jarsigner -verify -strict/);
+  assert.match(workflow, /jarsigner -verify -verbose -certs/);
+  assert.match(workflow, /keytool -printcert -jarfile/);
   assert.match(workflow, /DEN-2843: Android release signing requires non-blank/);
   assertPinnedActions(workflow);
 });
@@ -76,7 +77,8 @@ test('production AAB workflow is manual, protected, least-privilege, and non-pub
   assert.match(workflow, /secrets\.FIDUCIA_ANDROID_KEY_PASSWORD/);
   assert.match(workflow, /vars\.FIDUCIA_ANDROID_EXPECTED_SHA256/);
   assert.match(workflow, /flutter build appbundle --release/);
-  assert.match(workflow, /jarsigner -verify -strict/);
+  assert.match(workflow, /jarsigner -verify -verbose -certs/);
+  assert.match(workflow, /keytool -printcert -jarfile/);
   assert.match(workflow, /certificate-sha256=/);
   assert.match(workflow, /retention-days: 30/);
   assert.doesNotMatch(workflow, /google-play|play-store|upload-to-play|publish-release/i);
