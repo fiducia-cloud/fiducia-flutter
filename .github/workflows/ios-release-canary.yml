@@ -37,12 +37,16 @@ jobs:
           flutter --version
           xcodebuild -version
 
-      - name: Resolve Flutter and CocoaPods dependencies
+      - name: Resolve Flutter and Apple dependencies
         run: |
           set -euo pipefail
           flutter pub get
           git diff --exit-code -- pubspec.lock
-          (cd ios && pod install)
+          if [[ -f ios/Podfile ]]; then
+            (cd ios && pod install)
+          else
+            echo "No ios/Podfile; relying on the Flutter/Xcode Swift Package integration."
+          fi
 
       - name: Reject placeholder bundle identifiers
         shell: bash
