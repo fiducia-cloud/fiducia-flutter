@@ -61,3 +61,6 @@ temp/
 # Explicit worktree paths are retained for tools that inspect path rules
 # literally instead of matching the parent directory pattern.
 temp/worktrees/
+
+# TJSV comparison evidence (generated Schema B, receipts, Contract IR) is never an authority.
+.typespec-json-schema-validator/
