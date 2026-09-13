@@ -1,7 +1,21 @@
-name: Android production AAB
+name: Android signed AAB and Play Internal testing
 
 on:
   workflow_dispatch:
+    inputs:
+      build_name:
+        description: Public version name (blank uses pubspec.yaml)
+        type: string
+        required: false
+      build_number:
+        description: Monotonic Play versionCode (blank uses this workflow run number)
+        type: string
+        required: false
+      publish_internal:
+        description: Upload the signed AAB to Google Play Internal testing
+        type: boolean
+        required: true
+        default: false
 
 permissions:
   contents: read
@@ -10,9 +24,14 @@ concurrency:
   group: android-production-aab
   cancel-in-progress: false
 
+env:
+  FIDUCIA_PLAY_PACKAGE: cloud.fiducia.fiducia_flutter
+  RELEASE_BUILD_NUMBER: ${{ inputs.build_number != '' && inputs.build_number || github.run_number }}
+  RELEASE_BUILD_NAME: ${{ inputs.build_name }}
+
 jobs:
   build:
-    name: Build and attest production AAB
+    name: Build, attest, and optionally publish signed AAB
     runs-on: ubuntu-latest
     timeout-minutes: 45
     environment: android-production
@@ -43,6 +62,26 @@ jobs:
           channel: stable
           cache: true
 
+      - name: Validate Play release contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$RELEASE_BUILD_NUMBER" =~ ^[1-9][0-9]*$ ]] || {
+            echo "build_number must be a positive integer" >&2
+            exit 64
+          }
+          if [[ -n "$RELEASE_BUILD_NAME" && ! "$RELEASE_BUILD_NAME" =~ ^[0-9]+\.[0-9]+\.[0-9]+([-+][0-9A-Za-z.-]+)?$ ]]; then
+            echo "build_name must be semantic-version-like" >&2
+            exit 64
+          fi
+          gradle_id="$(sed -n 's/^[[:space:]]*applicationId = "\([^"]*\)".*/\1/p' android/app/build.gradle.kts | head -n 1)"
+          [[ "$gradle_id" == "$FIDUCIA_PLAY_PACKAGE" ]] || {
+            echo "Gradle applicationId '$gradle_id' does not match Play package '$FIDUCIA_PLAY_PACKAGE'" >&2
+            exit 1
+          }
+          grep -Fq 'compileSdk = 36' android/app/build.gradle.kts
+          grep -Fq 'targetSdk = 36' android/app/build.gradle.kts
+
       - name: Resolve locked dependencies
         run: flutter pub get --enforce-lockfile
 
@@ -69,11 +108,7 @@ jobs:
               exit 1
             fi
           done
-          expected="$(
-            printf '%s' "$FIDUCIA_ANDROID_EXPECTED_SHA256" |
-              tr -d ':[:space:]' |
-              tr '[:lower:]' '[:upper:]'
-          )"
+          expected="$(printf '%s' "$FIDUCIA_ANDROID_EXPECTED_SHA256" | tr -d ':[:space:]' | tr '[:lower:]' '[:upper:]')"
           [[ "$expected" =~ ^[0-9A-F]{64}$ ]]
           keystore="$RUNNER_TEMP/fiducia-production-release.keystore"
           printf '%s' "$FIDUCIA_ANDROID_KEYSTORE_BASE64" | base64 --decode > "$keystore"
@@ -81,14 +116,21 @@ jobs:
           test -s "$keystore"
           printf 'keystore=%s\n' "$keystore" >> "$GITHUB_OUTPUT"
 
-      - name: Build the signed production AAB
+      - name: Build the signed Play AAB
         env:
           FIDUCIA_ANDROID_KEYSTORE_PATH: ${{ steps.signing.outputs.keystore }}
           FIDUCIA_ANDROID_KEYSTORE_PASSWORD: ${{ secrets.FIDUCIA_ANDROID_KEYSTORE_PASSWORD }}
           FIDUCIA_ANDROID_KEY_ALIAS: ${{ secrets.FIDUCIA_ANDROID_KEY_ALIAS }}
           FIDUCIA_ANDROID_KEY_PASSWORD: ${{ secrets.FIDUCIA_ANDROID_KEY_PASSWORD }}
           FIDUCIA_ANDROID_CERT_SHA256: ${{ vars.FIDUCIA_ANDROID_EXPECTED_SHA256 }}
-        run: flutter build appbundle --release
+        shell: bash
+        run: |
+          set -euo pipefail
+          args=(--release --build-number="$RELEASE_BUILD_NUMBER")
+          if [[ -n "$RELEASE_BUILD_NAME" ]]; then
+            args+=(--build-name="$RELEASE_BUILD_NAME")
+          fi
+          flutter build appbundle "${args[@]}"
 
       - name: Verify signature and record non-secret provenance
         shell: bash
@@ -101,37 +143,44 @@ jobs:
           mkdir -p "$evidence"
           test -s "$aab"
           jarsigner -verify -verbose -certs "$aab" > "$evidence/jarsigner-verify.txt"
-          actual="$(
-            keytool -printcert -jarfile "$aab" |
-              sed -n 's/^[[:space:]]*SHA256: //p' |
-              head -n 1 |
-              tr -d ':[:space:]' |
-              tr '[:lower:]' '[:upper:]'
-          )"
-          expected="$(
-            printf '%s' "$FIDUCIA_ANDROID_EXPECTED_SHA256" |
-              tr -d ':[:space:]' |
-              tr '[:lower:]' '[:upper:]'
-          )"
+          actual="$(keytool -printcert -jarfile "$aab" | sed -n 's/^[[:space:]]*SHA256: //p' | head -n 1 | tr -d ':[:space:]' | tr '[:lower:]' '[:upper:]')"
+          expected="$(printf '%s' "$FIDUCIA_ANDROID_EXPECTED_SHA256" | tr -d ':[:space:]' | tr '[:lower:]' '[:upper:]')"
           [[ "$actual" =~ ^[0-9A-F]{64}$ ]]
           test "$actual" = "$expected"
           sha256sum "$aab" > "$evidence/app-release.aab.sha256"
           {
             printf 'commit=%s\n' "$GITHUB_SHA"
-            printf 'workflow-run=%s/%s/actions/runs/%s\n' \
-              "$GITHUB_SERVER_URL" "$GITHUB_REPOSITORY" "$GITHUB_RUN_ID"
+            printf 'workflow-run=%s/%s/actions/runs/%s\n' "$GITHUB_SERVER_URL" "$GITHUB_REPOSITORY" "$GITHUB_RUN_ID"
+            printf 'package=%s\n' "$FIDUCIA_PLAY_PACKAGE"
+            printf 'version-code=%s\n' "$RELEASE_BUILD_NUMBER"
             printf 'certificate-sha256=%s\n' "$actual"
           } > "$evidence/provenance.txt"
 
       - name: Upload signed AAB and provenance
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: fiducia-android-production-aab-${{ github.run_id }}
+          name: fiducia-android-${{ env.RELEASE_BUILD_NUMBER }}
           path: |
             build/app/outputs/bundle/release/app-release.aab
             ${{ runner.temp }}/android-release-evidence
           if-no-files-found: error
           retention-days: 30
+
+      - name: Require Play service account for Internal testing
+        if: ${{ inputs.publish_internal }}
+        env:
+          PLAY_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON }}
+        run: test -n "$PLAY_SERVICE_ACCOUNT_JSON"
+
+      - name: Upload to Google Play Internal testing
+        if: ${{ inputs.publish_internal }}
+        uses: r0adkll/upload-google-play@e738b9dd8f2476ea806d921b64aacd24f34515a5 # v1.1.5
+        with:
+          serviceAccountJsonPlainText: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON }}
+          packageName: ${{ env.FIDUCIA_PLAY_PACKAGE }}
+          releaseFiles: build/app/outputs/bundle/release/app-release.aab
+          track: internal
+          status: completed
 
       - name: Remove decoded signing material
         if: always()

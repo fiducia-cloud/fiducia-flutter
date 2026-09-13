@@ -28,6 +28,8 @@ test('Gradle release signing is fail-closed and never falls back to debug keys',
   assert.doesNotMatch(gradle, /key\.properties/);
   assert.match(gradle, /releaseTaskRequested/);
   assert.match(gradle, /taskName\.contains\("release", ignoreCase = true\)/);
+  assert.match(gradle, /compileSdk = 36/);
+  assert.match(gradle, /targetSdk = 36/);
 
   for (const variable of [
     'FIDUCIA_ANDROID_KEYSTORE_PATH',
@@ -63,7 +65,7 @@ test('PR verification proves both the missing-secret failure and a signed test A
   assertPinnedActions(workflow);
 });
 
-test('production AAB workflow is manual, protected, least-privilege, and non-publishing', async () => {
+test('production AAB workflow is manual, protected, least-privilege, and Internal-track-only', async () => {
   const workflow = await repositoryFile('.github/workflows/android-production-aab.yml');
 
   assert.match(workflow, /workflow_dispatch:/);
@@ -76,11 +78,21 @@ test('production AAB workflow is manual, protected, least-privilege, and non-pub
   assert.match(workflow, /secrets\.FIDUCIA_ANDROID_KEY_ALIAS/);
   assert.match(workflow, /secrets\.FIDUCIA_ANDROID_KEY_PASSWORD/);
   assert.match(workflow, /vars\.FIDUCIA_ANDROID_EXPECTED_SHA256/);
-  assert.match(workflow, /flutter build appbundle --release/);
+  assert.match(workflow, /args=\(--release/);
+  assert.match(workflow, /flutter build appbundle/);
   assert.match(workflow, /jarsigner -verify -verbose -certs/);
   assert.match(workflow, /keytool -printcert -jarfile/);
   assert.match(workflow, /certificate-sha256=/);
   assert.match(workflow, /retention-days: 30/);
-  assert.doesNotMatch(workflow, /google-play|play-store|upload-to-play|publish-release/i);
+
+  assert.match(workflow, /publish_internal:/);
+  assert.match(workflow, /default: false/);
+  assert.match(workflow, /GOOGLE_PLAY_SERVICE_ACCOUNT_JSON/);
+  assert.match(workflow, /r0adkll\/upload-google-play@[0-9a-f]{40}/);
+  assert.match(workflow, /track: internal/);
+  assert.match(workflow, /status: completed/);
+  assert.doesNotMatch(workflow, /track: production/);
+  assert.doesNotMatch(workflow, /track: beta/);
+  assert.doesNotMatch(workflow, /track: alpha/);
   assertPinnedActions(workflow);
 });
