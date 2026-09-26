@@ -2,14 +2,22 @@ import 'dart:async';
 
 import 'package:app_links/app_links.dart';
 import 'package:flutter/material.dart';
+import 'package:ores_otel_flutter/ores_otel_flutter.dart';
 
 import 'src/app/app_lifecycle_machine.dart';
 import 'src/app/deep_link_admission.dart';
 
 void main() {
-  WidgetsFlutterBinding.ensureInitialized();
-  final appLinks = AppLinks();
-  runApp(FiduciaApp(linkStream: appLinks.stringLinkStream));
+  final logger = Logger(appName: 'fiducia_flutter');
+  runOresFlutterApp(
+    appName: 'fiducia_flutter',
+    emitToDeveloperLog: false,
+    sinks: [NextLoggersStartupDiagnosticSink(logger: logger)],
+    builder: (_) {
+      final appLinks = AppLinks();
+      return FiduciaApp(linkStream: appLinks.stringLinkStream);
+    },
+  );
 }
 
 class FiduciaApp extends StatelessWidget {
