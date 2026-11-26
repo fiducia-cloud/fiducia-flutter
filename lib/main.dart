@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 
 import 'src/app/app_lifecycle_machine.dart';
 import 'src/app/deep_link_admission.dart';
+import 'src/commercial/commercial_intake.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -189,6 +190,16 @@ class _LifecycleConsoleState extends State<LifecycleConsole> {
         child: ListView(
           padding: const EdgeInsets.all(20),
           children: <Widget>[
+            OutlinedButton(
+              key: const ValueKey<String>('fiducia-commercial-intake'),
+              onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => const CommercialIntakeHub(),
+                ),
+              ),
+              child: const Text('Commercial intake'),
+            ),
+            const SizedBox(height: 8),
             _StateCard(snapshot: snapshot),
             const SizedBox(height: 8),
             Text(
