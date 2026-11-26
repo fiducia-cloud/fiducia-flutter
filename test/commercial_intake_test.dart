@@ -17,9 +17,7 @@ void main() {
   testWidgets('Fiducia renders before any commercial network request', (
     tester,
   ) async {
-    await tester.pumpWidget(
-      const MaterialApp(home: CommercialIntakeHub()),
-    );
+    await tester.pumpWidget(const MaterialApp(home: CommercialIntakeHub()));
 
     expect(
       find.byKey(const ValueKey<String>('fiducia-commercial-intake-hub')),
@@ -59,17 +57,13 @@ void main() {
   testWidgets('customer journeys expose their non-binding boundaries', (
     tester,
   ) async {
-    await tester.pumpWidget(
-      const MaterialApp(home: CommercialIntakeHub()),
-    );
+    await tester.pumpWidget(const MaterialApp(home: CommercialIntakeHub()));
 
     await tester.tap(find.text('Quote'));
     await tester.pumpAndSettle();
     expect(find.text('Request a quote'), findsOneWidget);
     expect(find.textContaining('non-binding'), findsWidgets);
-    final quoteSubmit = find.byKey(
-      const ValueKey<String>('submit-fiducia-quote'),
-    );
+    final quoteSubmit = find.byKey(const ValueKey<String>('submit-fiducia-quote'));
     await reveal(tester, quoteSubmit);
     expect(quoteSubmit, findsOneWidget);
 
