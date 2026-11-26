@@ -8,7 +8,12 @@ Future<void> reveal(WidgetTester tester, Finder finder) async {
     finder,
     360,
     maxScrolls: 100,
-    scrollable: find.byType(Scrollable).last,
+    scrollable: find
+        .descendant(
+          of: find.byType(ListView),
+          matching: find.byType(Scrollable),
+        )
+        .first,
   );
   await tester.pumpAndSettle();
 }
@@ -17,9 +22,7 @@ void main() {
   testWidgets('Fiducia renders before any commercial network request', (
     tester,
   ) async {
-    await tester.pumpWidget(
-      const MaterialApp(home: CommercialIntakeHub()),
-    );
+    await tester.pumpWidget(const MaterialApp(home: CommercialIntakeHub()));
 
     expect(
       find.byKey(const ValueKey<String>('fiducia-commercial-intake-hub')),
@@ -38,7 +41,9 @@ void main() {
   testWidgets('commercial action is available from the lifecycle console', (
     tester,
   ) async {
-    await tester.pumpWidget(const FiduciaApp(linkStream: Stream<String>.empty()));
+    await tester.pumpWidget(
+      const FiduciaApp(linkStream: Stream<String>.empty()),
+    );
     await tester.pump();
 
     expect(find.text('Fiducia lifecycle console'), findsOneWidget);
@@ -59,9 +64,7 @@ void main() {
   testWidgets('customer journeys expose their non-binding boundaries', (
     tester,
   ) async {
-    await tester.pumpWidget(
-      const MaterialApp(home: CommercialIntakeHub()),
-    );
+    await tester.pumpWidget(const MaterialApp(home: CommercialIntakeHub()));
 
     await tester.tap(find.text('Quote'));
     await tester.pumpAndSettle();
@@ -86,7 +89,9 @@ void main() {
 
     await tester.pageBack();
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Enterprise application'));
+    final enterprise = find.text('Enterprise application');
+    await reveal(tester, enterprise);
+    await tester.tap(enterprise);
     await tester.pumpAndSettle();
     expect(find.text('Enterprise application'), findsOneWidget);
     expect(find.textContaining('not itself a contract'), findsOneWidget);
@@ -100,9 +105,7 @@ void main() {
   testWidgets('support page distinguishes SLOs from contractual SLAs', (
     tester,
   ) async {
-    await tester.pumpWidget(
-      const MaterialApp(home: SupportAndContractPage()),
-    );
+    await tester.pumpWidget(const MaterialApp(home: SupportAndContractPage()));
 
     expect(find.text('Engineering SLO'), findsOneWidget);
     expect(find.text('Contractual SLA'), findsOneWidget);

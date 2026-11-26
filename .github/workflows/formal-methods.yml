@@ -138,7 +138,8 @@ jobs:
       - name: Analyze and test the Dart transition system
         run: |
           flutter pub get --enforce-lockfile
-          dart format --output=none --set-exit-if-changed lib test
+          dart format lib test
+          git diff --exit-code -- lib test
           flutter analyze
           flutter test
 
@@ -186,6 +187,30 @@ jobs:
 
       - name: Build native macOS shell
         run: flutter build macos --debug
+
+  newer-toolchain:
+    name: Flutter 3.50 compatibility
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Install Flutter 3.50
+        uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2
+        with:
+          flutter-version: '3.50.0'
+          channel: stable
+          cache: true
+      - name: Resolve SDK-compatible dependencies and test
+        run: |
+          flutter --version
+          flutter pub get
+          git diff -- pubspec.lock
+          # Flutter 3.50 reports the legacy Material import as informational.
+          # Preserve warnings/errors as fatal; the pinned SDK still gates all lints.
+          flutter analyze --no-fatal-infos
+          flutter test
 
   bounded-verification:
     name: Apalache bounded verification

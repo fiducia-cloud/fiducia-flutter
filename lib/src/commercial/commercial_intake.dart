@@ -21,11 +21,13 @@ final class CommercialIntakeException implements Exception {
 }
 
 final class CommercialIntakeClient {
-  CommercialIntakeClient({String apiOrigin = _defaultApiOrigin, http.Client? httpClient})
-    : _apiOrigin = apiOrigin.endsWith('/')
-          ? apiOrigin.substring(0, apiOrigin.length - 1)
-          : apiOrigin,
-      _httpClient = httpClient ?? http.Client();
+  CommercialIntakeClient({
+    String apiOrigin = _defaultApiOrigin,
+    http.Client? httpClient,
+  }) : _apiOrigin = apiOrigin.endsWith('/')
+           ? apiOrigin.substring(0, apiOrigin.length - 1)
+           : apiOrigin,
+       _httpClient = httpClient ?? http.Client();
 
   final String _apiOrigin;
   final http.Client _httpClient;
@@ -55,7 +57,9 @@ final class CommercialIntakeClient {
     }
     Object? decoded;
     try {
-      decoded = responseBody.isEmpty ? <String, Object?>{} : jsonDecode(responseBody);
+      decoded = responseBody.isEmpty
+          ? <String, Object?>{}
+          : jsonDecode(responseBody);
     } on FormatException {
       throw const CommercialIntakeException(
         'The protected API returned an unreadable response.',
@@ -80,9 +84,10 @@ final class CommercialIntakeClient {
 
   String _idempotencyKey() {
     final micros = DateTime.now().toUtc().microsecondsSinceEpoch;
-    final entropy = List<int>.generate(16, (_) => _random.nextInt(256))
-        .map((value) => value.toRadixString(16).padLeft(2, '0'))
-        .join();
+    final entropy = List<int>.generate(
+      16,
+      (_) => _random.nextInt(256),
+    ).map((value) => value.toRadixString(16).padLeft(2, '0')).join();
     return 'fiducia-flutter:$micros:$entropy';
   }
 
@@ -114,9 +119,9 @@ class CommercialIntakeHub extends StatelessWidget {
             title: 'Quote',
             description:
                 'Estimate monthly platform and implementation ranges from scale, deployment, retention, and support preferences.',
-            onPressed: () => Navigator.of(context).push(
-              MaterialPageRoute<void>(builder: (_) => const QuotePage()),
-            ),
+            onPressed: () => Navigator.of(
+              context,
+            ).push(MaterialPageRoute<void>(builder: (_) => const QuotePage())),
           ),
           _JourneyCard(
             icon: Icons.notifications_active_outlined,
@@ -201,7 +206,11 @@ abstract class _SubmittingState<T extends StatefulWidget> extends State<T> {
       errorMessage = null;
     });
     try {
-      final result = await client.submit(path: path, schema: schema, payload: payload);
+      final result = await client.submit(
+        path: path,
+        schema: schema,
+        payload: payload,
+      );
       if (!mounted) return;
       setState(() => receipt = result);
     } on TimeoutException {
@@ -212,7 +221,9 @@ abstract class _SubmittingState<T extends StatefulWidget> extends State<T> {
       });
     } on FormatException catch (error) {
       if (!mounted) return;
-      setState(() => errorMessage = 'Contract validation failed: ${error.message}');
+      setState(
+        () => errorMessage = 'Contract validation failed: ${error.message}',
+      );
     } on CommercialIntakeException catch (error) {
       if (!mounted) return;
       setState(() => errorMessage = error.message);
@@ -298,7 +309,11 @@ class _QuotePageState extends _SubmittingState<QuotePage> {
     children: <Widget>[
       _section('Contact and organization', <Widget>[
         _requiredField(name, 'Full name'),
-        _requiredField(email, 'Work email', keyboardType: TextInputType.emailAddress),
+        _requiredField(
+          email,
+          'Work email',
+          keyboardType: TextInputType.emailAddress,
+        ),
         _requiredField(role, 'Role'),
         _requiredField(organization, 'Legal organization name'),
         _requiredField(country, 'Country'),
@@ -307,7 +322,8 @@ class _QuotePageState extends _SubmittingState<QuotePage> {
           initialValue: companySize,
           decoration: const InputDecoration(labelText: 'Company size'),
           items: _companySizes,
-          onChanged: (value) => setState(() => companySize = value ?? companySize),
+          onChanged: (value) =>
+              setState(() => companySize = value ?? companySize),
         ),
       ]),
       _section('Workload and commercial assumptions', <Widget>[
@@ -316,9 +332,8 @@ class _QuotePageState extends _SubmittingState<QuotePage> {
           initialValue: deploymentModel,
           decoration: const InputDecoration(labelText: 'Deployment model'),
           items: _deploymentModels,
-          onChanged: (value) => setState(
-            () => deploymentModel = value ?? deploymentModel,
-          ),
+          onChanged: (value) =>
+              setState(() => deploymentModel = value ?? deploymentModel),
         ),
         _requiredField(environments, 'Environments', number: true),
         _requiredField(averageOps, 'Average operations/second', number: true),
@@ -326,15 +341,19 @@ class _QuotePageState extends _SubmittingState<QuotePage> {
         _requiredField(retentionDays, 'Retention days', number: true),
         DropdownButtonFormField<String>(
           initialValue: supportPlan,
-          decoration: const InputDecoration(labelText: 'Requested support plan'),
+          decoration: const InputDecoration(
+            labelText: 'Requested support plan',
+          ),
           items: _supportPlans,
-          onChanged: (value) => setState(() => supportPlan = value ?? supportPlan),
+          onChanged: (value) =>
+              setState(() => supportPlan = value ?? supportPlan),
         ),
         DropdownButtonFormField<String>(
           initialValue: budgetBand,
           decoration: const InputDecoration(labelText: 'Budget band'),
           items: _budgetBands,
-          onChanged: (value) => setState(() => budgetBand = value ?? budgetBand),
+          onChanged: (value) =>
+              setState(() => budgetBand = value ?? budgetBand),
         ),
         TextFormField(
           controller: notes,
@@ -476,7 +495,11 @@ class _PreInterestPageState extends _SubmittingState<PreInterestPage> {
     children: <Widget>[
       _section('Contact and organization', <Widget>[
         _requiredField(name, 'Full name'),
-        _requiredField(email, 'Work email', keyboardType: TextInputType.emailAddress),
+        _requiredField(
+          email,
+          'Work email',
+          keyboardType: TextInputType.emailAddress,
+        ),
         _requiredField(role, 'Role'),
         _requiredField(organization, 'Legal organization name'),
         _requiredField(country, 'Country'),
@@ -485,7 +508,8 @@ class _PreInterestPageState extends _SubmittingState<PreInterestPage> {
           initialValue: companySize,
           decoration: const InputDecoration(labelText: 'Company size'),
           items: _companySizes,
-          onChanged: (value) => setState(() => companySize = value ?? companySize),
+          onChanged: (value) =>
+              setState(() => companySize = value ?? companySize),
         ),
       ]),
       _section('Upcoming project', <Widget>[
@@ -495,19 +519,22 @@ class _PreInterestPageState extends _SubmittingState<PreInterestPage> {
           initialValue: startWindow,
           decoration: const InputDecoration(labelText: 'Desired start window'),
           items: _startWindows,
-          onChanged: (value) => setState(() => startWindow = value ?? startWindow),
+          onChanged: (value) =>
+              setState(() => startWindow = value ?? startWindow),
         ),
         DropdownButtonFormField<String>(
           initialValue: budgetBand,
           decoration: const InputDecoration(labelText: 'Budget band'),
           items: _budgetBands,
-          onChanged: (value) => setState(() => budgetBand = value ?? budgetBand),
+          onChanged: (value) =>
+              setState(() => budgetBand = value ?? budgetBand),
         ),
         DropdownButtonFormField<String>(
           initialValue: supportPlan,
           decoration: const InputDecoration(labelText: 'Support interest'),
           items: _supportPlans,
-          onChanged: (value) => setState(() => supportPlan = value ?? supportPlan),
+          onChanged: (value) =>
+              setState(() => supportPlan = value ?? supportPlan),
         ),
         SwitchListTile(
           value: productUpdates,
@@ -610,7 +637,11 @@ class _EnterpriseApplicationPageState
     'project_name': TextEditingController(),
     'use_case': TextEditingController(),
     'start_date': TextEditingController(
-      text: DateTime.now().add(const Duration(days: 30)).toIso8601String().split('T').first,
+      text: DateTime.now()
+          .add(const Duration(days: 30))
+          .toIso8601String()
+          .split('T')
+          .first,
     ),
     'production_deadline': TextEditingController(),
     'internal_users': TextEditingController(text: '10'),
@@ -751,7 +782,8 @@ class _EnterpriseApplicationPageState
           initialValue: companySize,
           decoration: const InputDecoration(labelText: 'Company size'),
           items: _companySizes,
-          onChanged: (value) => setState(() => companySize = value ?? companySize),
+          onChanged: (value) =>
+              setState(() => companySize = value ?? companySize),
         ),
       ]),
       _section('Project and decision process', <Widget>[
@@ -760,22 +792,29 @@ class _EnterpriseApplicationPageState
           initialValue: projectStage,
           decoration: const InputDecoration(labelText: 'Project stage'),
           items: _projectStages,
-          onChanged: (value) => setState(() => projectStage = value ?? projectStage),
+          onChanged: (value) =>
+              setState(() => projectStage = value ?? projectStage),
         ),
         _requiredField(field('use_case'), 'Use case summary', maxLines: 7),
         _requiredField(field('start_date'), 'Desired start date (YYYY-MM-DD)'),
-        _optionalField(field('production_deadline'), 'Production deadline (YYYY-MM-DD)'),
+        _optionalField(
+          field('production_deadline'),
+          'Production deadline (YYYY-MM-DD)',
+        ),
         DropdownButtonFormField<String>(
           initialValue: decisionTimeline,
           decoration: const InputDecoration(labelText: 'Decision timeline'),
           items: _startWindows,
-          onChanged: (value) => setState(
-            () => decisionTimeline = value ?? decisionTimeline,
-          ),
+          onChanged: (value) =>
+              setState(() => decisionTimeline = value ?? decisionTimeline),
         ),
         _requiredField(field('internal_users'), 'Internal users', number: true),
         _requiredField(field('end_users'), 'End users', number: true),
-        _requiredField(field('environment_count'), 'Environment count', number: true),
+        _requiredField(
+          field('environment_count'),
+          'Environment count',
+          number: true,
+        ),
       ]),
       _section('Architecture and scale', <Widget>[
         _requiredField(field('capabilities'), 'Capabilities (comma separated)'),
@@ -790,27 +829,74 @@ class _EnterpriseApplicationPageState
         _optionalField(field('integrations'), 'Integrations (comma separated)'),
         _requiredField(field('regions'), 'Regions (comma separated)'),
         _requiredField(field('data_classes'), 'Data classes (comma separated)'),
-        _requiredField(field('average_ops'), 'Average operations/second', number: true),
-        _requiredField(field('peak_ops'), 'Peak operations/second', number: true),
-        _optionalField(field('active_keys'), 'Estimated active keys', number: true),
-        _optionalField(field('payload_bytes'), 'Maximum payload bytes', number: true),
+        _requiredField(
+          field('average_ops'),
+          'Average operations/second',
+          number: true,
+        ),
+        _requiredField(
+          field('peak_ops'),
+          'Peak operations/second',
+          number: true,
+        ),
+        _optionalField(
+          field('active_keys'),
+          'Estimated active keys',
+          number: true,
+        ),
+        _optionalField(
+          field('payload_bytes'),
+          'Maximum payload bytes',
+          number: true,
+        ),
         _optionalField(field('retention_days'), 'Retention days', number: true),
         DropdownButtonFormField<String>(
           initialValue: consistency,
-          decoration: const InputDecoration(labelText: 'Consistency expectation'),
+          decoration: const InputDecoration(
+            labelText: 'Consistency expectation',
+          ),
           items: _consistencyLevels,
-          onChanged: (value) => setState(() => consistency = value ?? consistency),
+          onChanged: (value) =>
+              setState(() => consistency = value ?? consistency),
         ),
-        _optionalField(field('p95_ms'), 'p95 latency target (ms)', number: true),
-        _optionalField(field('p99_ms'), 'p99 latency target (ms)', number: true),
-        _optionalField(field('failover_seconds'), 'Failover target (seconds)', number: true),
+        _optionalField(
+          field('p95_ms'),
+          'p95 latency target (ms)',
+          number: true,
+        ),
+        _optionalField(
+          field('p99_ms'),
+          'p99 latency target (ms)',
+          number: true,
+        ),
+        _optionalField(
+          field('failover_seconds'),
+          'Failover target (seconds)',
+          number: true,
+        ),
         _optionalField(field('rpo_seconds'), 'RPO (seconds)', number: true),
         _optionalField(field('rto_seconds'), 'RTO (seconds)', number: true),
-        _switch('Private networking required', privateNetworking, (value) => privateNetworking = value),
-        _switch('Offline or edge operation required', offlineEdge, (value) => offlineEdge = value),
+        _switch(
+          'Private networking required',
+          privateNetworking,
+          (value) => privateNetworking = value,
+        ),
+        _switch(
+          'Offline or edge operation required',
+          offlineEdge,
+          (value) => offlineEdge = value,
+        ),
         _optionalField(field('current_stack'), 'Current stack', maxLines: 4),
-        _optionalField(field('migration_source'), 'Migration source', maxLines: 4),
-        _optionalField(field('architecture_notes'), 'Architecture notes', maxLines: 7),
+        _optionalField(
+          field('migration_source'),
+          'Migration source',
+          maxLines: 4,
+        ),
+        _optionalField(
+          field('architecture_notes'),
+          'Architecture notes',
+          maxLines: 7,
+        ),
       ]),
       _section('Security and compliance', <Widget>[
         _requiredField(field('compliance'), 'Frameworks (comma separated)'),
@@ -822,47 +908,115 @@ class _EnterpriseApplicationPageState
         _switch('SCIM required', scimRequired, (value) => scimRequired = value),
         _switch('MFA required', mfaRequired, (value) => mfaRequired = value),
         _switch('mTLS required', mtlsRequired, (value) => mtlsRequired = value),
-        _switch('Customer-managed keys required', cmkRequired, (value) => cmkRequired = value),
-        _switch('Data residency required', residencyRequired, (value) => residencyRequired = value),
-        _switch('Audit logs required', auditLogRequired, (value) => auditLogRequired = value),
+        _switch(
+          'Customer-managed keys required',
+          cmkRequired,
+          (value) => cmkRequired = value,
+        ),
+        _switch(
+          'Data residency required',
+          residencyRequired,
+          (value) => residencyRequired = value,
+        ),
+        _switch(
+          'Audit logs required',
+          auditLogRequired,
+          (value) => auditLogRequired = value,
+        ),
         _switch(
           'Security questionnaire required',
           securityQuestionnaire,
           (value) => securityQuestionnaire = value,
         ),
-        _optionalField(field('audit_retention'), 'Audit retention days', number: true),
-        _optionalField(field('security_notes'), 'Additional security requirements', maxLines: 7),
+        _optionalField(
+          field('audit_retention'),
+          'Audit retention days',
+          number: true,
+        ),
+        _optionalField(
+          field('security_notes'),
+          'Additional security requirements',
+          maxLines: 7,
+        ),
       ]),
       _section('Support and requested service level', <Widget>[
         DropdownButtonFormField<String>(
           initialValue: supportPlan,
           decoration: const InputDecoration(labelText: 'Support plan'),
           items: _supportPlans,
-          onChanged: (value) => setState(() => supportPlan = value ?? supportPlan),
+          onChanged: (value) =>
+              setState(() => supportPlan = value ?? supportPlan),
         ),
         DropdownButtonFormField<String>(
           initialValue: supportHours,
           decoration: const InputDecoration(labelText: 'Support hours'),
           items: _supportHours,
-          onChanged: (value) => setState(() => supportHours = value ?? supportHours),
+          onChanged: (value) =>
+              setState(() => supportHours = value ?? supportHours),
         ),
-        _requiredField(field('support_channels'), 'Support channels (comma separated)'),
-        _requiredField(field('p1_minutes'), 'Requested P1 response minutes', number: true),
-        _requiredField(field('p2_minutes'), 'Requested P2 response minutes', number: true),
-        _requiredField(field('p3_hours'), 'Requested P3 response hours', number: true),
-        _switch('Onboarding required', onboardingRequired, (value) => onboardingRequired = value),
-        _switch('Training required', trainingRequired, (value) => trainingRequired = value),
-        _switch('Architecture review required', architectureReview, (value) => architectureReview = value),
-        _switch('Migration assistance required', migrationAssistance, (value) => migrationAssistance = value),
-        _switch('Named technical contact required', namedContact, (value) => namedContact = value),
-        _switch('Technical account manager required', tamRequired, (value) => tamRequired = value),
-        _switch('Incident bridge required', incidentBridge, (value) => incidentBridge = value),
+        _requiredField(
+          field('support_channels'),
+          'Support channels (comma separated)',
+        ),
+        _requiredField(
+          field('p1_minutes'),
+          'Requested P1 response minutes',
+          number: true,
+        ),
+        _requiredField(
+          field('p2_minutes'),
+          'Requested P2 response minutes',
+          number: true,
+        ),
+        _requiredField(
+          field('p3_hours'),
+          'Requested P3 response hours',
+          number: true,
+        ),
+        _switch(
+          'Onboarding required',
+          onboardingRequired,
+          (value) => onboardingRequired = value,
+        ),
+        _switch(
+          'Training required',
+          trainingRequired,
+          (value) => trainingRequired = value,
+        ),
+        _switch(
+          'Architecture review required',
+          architectureReview,
+          (value) => architectureReview = value,
+        ),
+        _switch(
+          'Migration assistance required',
+          migrationAssistance,
+          (value) => migrationAssistance = value,
+        ),
+        _switch(
+          'Named technical contact required',
+          namedContact,
+          (value) => namedContact = value,
+        ),
+        _switch(
+          'Technical account manager required',
+          tamRequired,
+          (value) => tamRequired = value,
+        ),
+        _switch(
+          'Incident bridge required',
+          incidentBridge,
+          (value) => incidentBridge = value,
+        ),
         _optionalField(field('support_notes'), 'Support notes', maxLines: 6),
         DropdownButtonFormField<String>(
           initialValue: availability,
-          decoration: const InputDecoration(labelText: 'Requested availability'),
+          decoration: const InputDecoration(
+            labelText: 'Requested availability',
+          ),
           items: _availabilityTargets,
-          onChanged: (value) => setState(() => availability = value ?? availability),
+          onChanged: (value) =>
+              setState(() => availability = value ?? availability),
         ),
         _requiredField(
           field('maintenance_notice'),
@@ -873,19 +1027,21 @@ class _EnterpriseApplicationPageState
           initialValue: measurementWindow,
           decoration: const InputDecoration(labelText: 'Measurement window'),
           items: _measurementWindows,
-          onChanged: (value) => setState(
-            () => measurementWindow = value ?? measurementWindow,
-          ),
+          onChanged: (value) =>
+              setState(() => measurementWindow = value ?? measurementWindow),
         ),
         DropdownButtonFormField<String>(
           initialValue: errorBudgetPolicy,
           decoration: const InputDecoration(labelText: 'Error-budget policy'),
           items: _errorBudgetPolicies,
-          onChanged: (value) => setState(
-            () => errorBudgetPolicy = value ?? errorBudgetPolicy,
-          ),
+          onChanged: (value) =>
+              setState(() => errorBudgetPolicy = value ?? errorBudgetPolicy),
         ),
-        _switch('Service credits requested', serviceCredits, (value) => serviceCredits = value),
+        _switch(
+          'Service credits requested',
+          serviceCredits,
+          (value) => serviceCredits = value,
+        ),
         _switch(
           'Accept SLO-only evaluation phase',
           acceptsEvaluationSlo,
@@ -898,7 +1054,8 @@ class _EnterpriseApplicationPageState
           initialValue: contractPath,
           decoration: const InputDecoration(labelText: 'Contract path'),
           items: _contractPaths,
-          onChanged: (value) => setState(() => contractPath = value ?? contractPath),
+          onChanged: (value) =>
+              setState(() => contractPath = value ?? contractPath),
         ),
         _requiredField(
           field('requested_documents'),
@@ -914,15 +1071,15 @@ class _EnterpriseApplicationPageState
           initialValue: billingCadence,
           decoration: const InputDecoration(labelText: 'Billing cadence'),
           items: _billingCadences,
-          onChanged: (value) => setState(
-            () => billingCadence = value ?? billingCadence,
-          ),
+          onChanged: (value) =>
+              setState(() => billingCadence = value ?? billingCadence),
         ),
         DropdownButtonFormField<String>(
           initialValue: paymentTerms,
           decoration: const InputDecoration(labelText: 'Payment terms'),
           items: _paymentTerms,
-          onChanged: (value) => setState(() => paymentTerms = value ?? paymentTerms),
+          onChanged: (value) =>
+              setState(() => paymentTerms = value ?? paymentTerms),
         ),
         DropdownButtonFormField<String>(
           initialValue: currency,
@@ -930,40 +1087,96 @@ class _EnterpriseApplicationPageState
           items: _currencies,
           onChanged: (value) => setState(() => currency = value ?? currency),
         ),
-        _switch('Auto-renewal allowed', autoRenewal, (value) => autoRenewal = value),
+        _switch(
+          'Auto-renewal allowed',
+          autoRenewal,
+          (value) => autoRenewal = value,
+        ),
         _switch(
           'Termination for convenience requested',
           terminationForConvenience,
           (value) => terminationForConvenience = value,
         ),
-        _switch('Purchase order required', purchaseOrderRequired, (value) => purchaseOrderRequired = value),
-        _switch('Vendor portal required', vendorPortalRequired, (value) => vendorPortalRequired = value),
-        _switch('Security review required', securityReviewRequired, (value) => securityReviewRequired = value),
-        _switch('Legal review required', legalReviewRequired, (value) => legalReviewRequired = value),
+        _switch(
+          'Purchase order required',
+          purchaseOrderRequired,
+          (value) => purchaseOrderRequired = value,
+        ),
+        _switch(
+          'Vendor portal required',
+          vendorPortalRequired,
+          (value) => vendorPortalRequired = value,
+        ),
+        _switch(
+          'Security review required',
+          securityReviewRequired,
+          (value) => securityReviewRequired = value,
+        ),
+        _switch(
+          'Legal review required',
+          legalReviewRequired,
+          (value) => legalReviewRequired = value,
+        ),
         _optionalField(field('governing_law'), 'Governing-law preference'),
         _optionalField(field('venue'), 'Venue preference'),
-        _optionalField(field('liability'), 'Liability-cap preference', maxLines: 4),
-        _optionalField(field('indemnity'), 'Indemnity requirements', maxLines: 4),
-        _optionalField(field('insurance'), 'Insurance requirements', maxLines: 4),
-        _optionalField(field('audit_rights'), 'Audit-rights requirements', maxLines: 4),
-        _optionalField(field('data_processing'), 'Data-processing/DPA requirements', maxLines: 6),
-        _optionalField(field('ip_requirements'), 'Intellectual-property requirements', maxLines: 4),
-        _optionalField(field('procurement_notes'), 'Procurement notes', maxLines: 6),
+        _optionalField(
+          field('liability'),
+          'Liability-cap preference',
+          maxLines: 4,
+        ),
+        _optionalField(
+          field('indemnity'),
+          'Indemnity requirements',
+          maxLines: 4,
+        ),
+        _optionalField(
+          field('insurance'),
+          'Insurance requirements',
+          maxLines: 4,
+        ),
+        _optionalField(
+          field('audit_rights'),
+          'Audit-rights requirements',
+          maxLines: 4,
+        ),
+        _optionalField(
+          field('data_processing'),
+          'Data-processing/DPA requirements',
+          maxLines: 6,
+        ),
+        _optionalField(
+          field('ip_requirements'),
+          'Intellectual-property requirements',
+          maxLines: 4,
+        ),
+        _optionalField(
+          field('procurement_notes'),
+          'Procurement notes',
+          maxLines: 6,
+        ),
       ]),
       _section('Commercial and signatory', <Widget>[
         DropdownButtonFormField<String>(
           initialValue: budgetBand,
           decoration: const InputDecoration(labelText: 'Budget band'),
           items: _budgetBands,
-          onChanged: (value) => setState(() => budgetBand = value ?? budgetBand),
+          onChanged: (value) =>
+              setState(() => budgetBand = value ?? budgetBand),
         ),
         DropdownButtonFormField<String>(
           initialValue: pricingModel,
-          decoration: const InputDecoration(labelText: 'Pricing model preference'),
+          decoration: const InputDecoration(
+            labelText: 'Pricing model preference',
+          ),
           items: _pricingModels,
-          onChanged: (value) => setState(() => pricingModel = value ?? pricingModel),
+          onChanged: (value) =>
+              setState(() => pricingModel = value ?? pricingModel),
         ),
-        _optionalField(field('monthly_budget'), 'Monthly budget cents', number: true),
+        _optionalField(
+          field('monthly_budget'),
+          'Monthly budget cents',
+          number: true,
+        ),
         _optionalField(
           field('implementation_budget'),
           'Implementation budget cents',
@@ -985,7 +1198,11 @@ class _EnterpriseApplicationPageState
         _requiredField(field('signatory_role'), 'Authorized signatory role'),
         _switch('Tax exempt', taxExempt, (value) => taxExempt = value),
         _switch('Reseller or partner', reseller, (value) => reseller = value),
-        _optionalField(field('commercial_notes'), 'Commercial notes', maxLines: 6),
+        _optionalField(
+          field('commercial_notes'),
+          'Commercial notes',
+          maxLines: 6,
+        ),
         _optionalField(
           field('additional_requirements'),
           'Additional requirements',
@@ -999,7 +1216,8 @@ class _EnterpriseApplicationPageState
       ),
       _acknowledgement(
         value: nonBindingAcknowledged,
-        label: 'I understand requested terms, support, SLOs, and SLAs are non-binding until signed.',
+        label:
+            'I understand requested terms, support, SLOs, and SLAs are non-binding until signed.',
         onChanged: (value) => setState(() => nonBindingAcknowledged = value),
       ),
       _acknowledgement(
@@ -1036,7 +1254,10 @@ class _EnterpriseApplicationPageState
         !noSecretsAcknowledged ||
         !privacyAccepted ||
         !acceptsEvaluationSlo) {
-      setState(() => errorMessage = 'Complete every required authority and service-level acknowledgement.');
+      setState(
+        () => errorMessage =
+            'Complete every required authority and service-level acknowledgement.',
+      );
       return;
     }
     final payload = <String, Object?>{
@@ -1110,7 +1331,9 @@ class _EnterpriseApplicationPageState
         'audit_retention_days': _integer(field('audit_retention').text),
         'security_questionnaire_required': securityQuestionnaire,
         if (field('security_notes').text.trim().isNotEmpty)
-          'additional_security_requirements': field('security_notes').text.trim(),
+          'additional_security_requirements': field(
+            'security_notes',
+          ).text.trim(),
       },
       'support': <String, Object?>{
         'support_plan': supportPlan,
@@ -1168,14 +1391,18 @@ class _EnterpriseApplicationPageState
         if (field('data_processing').text.trim().isNotEmpty)
           'data_processing_requirements': field('data_processing').text.trim(),
         if (field('ip_requirements').text.trim().isNotEmpty)
-          'intellectual_property_requirements': field('ip_requirements').text.trim(),
+          'intellectual_property_requirements': field(
+            'ip_requirements',
+          ).text.trim(),
         if (field('procurement_notes').text.trim().isNotEmpty)
           'procurement_notes': field('procurement_notes').text.trim(),
       },
       'commercial': <String, Object?>{
         'budget_band': budgetBand,
         'pricing_model_preference': pricingModel,
-        'estimated_monthly_budget_cents': _integer(field('monthly_budget').text),
+        'estimated_monthly_budget_cents': _integer(
+          field('monthly_budget').text,
+        ),
         'estimated_implementation_budget_cents': _integer(
           field('implementation_budget').text,
         ),
@@ -1333,7 +1560,10 @@ Widget _section(String title, List<Widget> children) => Card(
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: <Widget>[
-        Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+        Text(
+          title,
+          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+        ),
         const SizedBox(height: 12),
         ...children.expand(
           (child) => <Widget>[child, const SizedBox(height: 10)],
@@ -1354,7 +1584,8 @@ Widget _requiredField(
   decoration: InputDecoration(labelText: label),
   keyboardType: keyboardType ?? (number ? TextInputType.number : null),
   maxLines: maxLines,
-  validator: (value) => value == null || value.trim().isEmpty ? 'Required' : null,
+  validator: (value) =>
+      value == null || value.trim().isEmpty ? 'Required' : null,
 );
 
 Widget _optionalField(
@@ -1400,14 +1631,15 @@ final List<DropdownMenuItem<String>> _companySizes = <DropdownMenuItem<String>>[
   _item('employees_1001_5000', '1,001–5,000'),
   _item('employees_5001_plus', '5,001+'),
 ];
-final List<DropdownMenuItem<String>> _deploymentModels = <DropdownMenuItem<String>>[
-  _item('evaluation', 'Evaluation'),
-  _item('managed_multi_tenant', 'Managed multi-tenant'),
-  _item('managed_dedicated', 'Managed dedicated'),
-  _item('customer_kubernetes', 'Customer Kubernetes'),
-  _item('customer_cloud', 'Customer cloud'),
-  _item('hybrid', 'Hybrid'),
-];
+final List<DropdownMenuItem<String>> _deploymentModels =
+    <DropdownMenuItem<String>>[
+      _item('evaluation', 'Evaluation'),
+      _item('managed_multi_tenant', 'Managed multi-tenant'),
+      _item('managed_dedicated', 'Managed dedicated'),
+      _item('customer_kubernetes', 'Customer Kubernetes'),
+      _item('customer_cloud', 'Customer cloud'),
+      _item('hybrid', 'Hybrid'),
+    ];
 final List<DropdownMenuItem<String>> _supportPlans = <DropdownMenuItem<String>>[
   _item('community', 'Community / evaluation'),
   _item('standard', 'Standard'),
@@ -1417,11 +1649,11 @@ final List<DropdownMenuItem<String>> _supportPlans = <DropdownMenuItem<String>>[
 ];
 final List<DropdownMenuItem<String>> _budgetBands = <DropdownMenuItem<String>>[
   _item('unknown', 'Unknown'),
-  _item('under_500_monthly', 'Under $500/month'),
-  _item('monthly_500_2000', '$500–$2,000/month'),
-  _item('monthly_2000_10000', '$2,000–$10,000/month'),
-  _item('monthly_10000_50000', '$10,000–$50,000/month'),
-  _item('monthly_50000_plus', '$50,000+/month'),
+  _item('under_500_monthly', r'Under $500/month'),
+  _item('monthly_500_2000', r'$500–$2,000/month'),
+  _item('monthly_2000_10000', r'$2,000–$10,000/month'),
+  _item('monthly_10000_50000', r'$10,000–$50,000/month'),
+  _item('monthly_50000_plus', r'$50,000+/month'),
   _item('custom_contract', 'Custom contract'),
 ];
 final List<DropdownMenuItem<String>> _startWindows = <DropdownMenuItem<String>>[
@@ -1432,61 +1664,68 @@ final List<DropdownMenuItem<String>> _startWindows = <DropdownMenuItem<String>>[
   _item('later', 'Later'),
   _item('exploring', 'Exploring'),
 ];
-final List<DropdownMenuItem<String>> _projectStages = <DropdownMenuItem<String>>[
-  _item('research', 'Research'),
-  _item('prototype', 'Prototype'),
-  _item('pilot', 'Pilot'),
-  _item('pre_production', 'Pre-production'),
-  _item('production', 'Production'),
-  _item('migration', 'Migration'),
-];
-final List<DropdownMenuItem<String>> _consistencyLevels = <DropdownMenuItem<String>>[
-  _item('linearizable', 'Linearizable'),
-  _item('serializable', 'Serializable'),
-  _item('read_your_writes', 'Read your writes'),
-  _item('eventual', 'Eventual'),
-  _item('unsure', 'Unsure'),
-];
+final List<DropdownMenuItem<String>> _projectStages =
+    <DropdownMenuItem<String>>[
+      _item('research', 'Research'),
+      _item('prototype', 'Prototype'),
+      _item('pilot', 'Pilot'),
+      _item('pre_production', 'Pre-production'),
+      _item('production', 'Production'),
+      _item('migration', 'Migration'),
+    ];
+final List<DropdownMenuItem<String>> _consistencyLevels =
+    <DropdownMenuItem<String>>[
+      _item('linearizable', 'Linearizable'),
+      _item('serializable', 'Serializable'),
+      _item('read_your_writes', 'Read your writes'),
+      _item('eventual', 'Eventual'),
+      _item('unsure', 'Unsure'),
+    ];
 final List<DropdownMenuItem<String>> _supportHours = <DropdownMenuItem<String>>[
   _item('business_hours', 'Business hours'),
   _item('twenty_four_by_five', '24×5'),
   _item('twenty_four_by_seven', '24×7'),
 ];
-final List<DropdownMenuItem<String>> _availabilityTargets = <DropdownMenuItem<String>>[
-  _item('best_effort_beta', 'Best-effort beta'),
-  _item('availability_99_0', '99.0% request'),
-  _item('availability_99_5', '99.5% request'),
-  _item('availability_99_9', '99.9% request'),
-  _item('availability_99_95', '99.95% request'),
-  _item('custom', 'Custom'),
-];
-final List<DropdownMenuItem<String>> _measurementWindows = <DropdownMenuItem<String>>[
-  _item('monthly', 'Monthly'),
-  _item('rolling_30_day', 'Rolling 30 day'),
-  _item('quarterly', 'Quarterly'),
-  _item('custom', 'Custom'),
-];
-final List<DropdownMenuItem<String>> _errorBudgetPolicies = <DropdownMenuItem<String>>[
-  _item('informational', 'Informational'),
-  _item('release_freeze', 'Release freeze'),
-  _item('joint_review', 'Joint review'),
-  _item('custom', 'Custom'),
-];
-final List<DropdownMenuItem<String>> _contractPaths = <DropdownMenuItem<String>>[
-  _item('online_terms', 'Online terms'),
-  _item('fiducia_msa', 'Fiducia MSA'),
-  _item('customer_msa', 'Customer MSA'),
-  _item('sow_only', 'SOW only'),
-  _item('public_sector_terms', 'Public-sector terms'),
-  _item('custom', 'Custom'),
-];
-final List<DropdownMenuItem<String>> _billingCadences = <DropdownMenuItem<String>>[
-  _item('monthly', 'Monthly'),
-  _item('quarterly', 'Quarterly'),
-  _item('annual', 'Annual'),
-  _item('prepaid_commit', 'Prepaid commit'),
-  _item('custom', 'Custom'),
-];
+final List<DropdownMenuItem<String>> _availabilityTargets =
+    <DropdownMenuItem<String>>[
+      _item('best_effort_beta', 'Best-effort beta'),
+      _item('availability_99_0', '99.0% request'),
+      _item('availability_99_5', '99.5% request'),
+      _item('availability_99_9', '99.9% request'),
+      _item('availability_99_95', '99.95% request'),
+      _item('custom', 'Custom'),
+    ];
+final List<DropdownMenuItem<String>> _measurementWindows =
+    <DropdownMenuItem<String>>[
+      _item('monthly', 'Monthly'),
+      _item('rolling_30_day', 'Rolling 30 day'),
+      _item('quarterly', 'Quarterly'),
+      _item('custom', 'Custom'),
+    ];
+final List<DropdownMenuItem<String>> _errorBudgetPolicies =
+    <DropdownMenuItem<String>>[
+      _item('informational', 'Informational'),
+      _item('release_freeze', 'Release freeze'),
+      _item('joint_review', 'Joint review'),
+      _item('custom', 'Custom'),
+    ];
+final List<DropdownMenuItem<String>> _contractPaths =
+    <DropdownMenuItem<String>>[
+      _item('online_terms', 'Online terms'),
+      _item('fiducia_msa', 'Fiducia MSA'),
+      _item('customer_msa', 'Customer MSA'),
+      _item('sow_only', 'SOW only'),
+      _item('public_sector_terms', 'Public-sector terms'),
+      _item('custom', 'Custom'),
+    ];
+final List<DropdownMenuItem<String>> _billingCadences =
+    <DropdownMenuItem<String>>[
+      _item('monthly', 'Monthly'),
+      _item('quarterly', 'Quarterly'),
+      _item('annual', 'Annual'),
+      _item('prepaid_commit', 'Prepaid commit'),
+      _item('custom', 'Custom'),
+    ];
 final List<DropdownMenuItem<String>> _paymentTerms = <DropdownMenuItem<String>>[
   _item('card_due_on_receipt', 'Due on receipt'),
   _item('net_15', 'Net 15'),
@@ -1503,11 +1742,12 @@ final List<DropdownMenuItem<String>> _currencies = <DropdownMenuItem<String>>[
   _item('AUD', 'AUD'),
   _item('other', 'Other'),
 ];
-final List<DropdownMenuItem<String>> _pricingModels = <DropdownMenuItem<String>>[
-  _item('usage_based', 'Usage based'),
-  _item('per_cluster', 'Per cluster'),
-  _item('per_environment', 'Per environment'),
-  _item('platform_subscription', 'Platform subscription'),
-  _item('committed_spend', 'Committed spend'),
-  _item('custom', 'Custom'),
-];
+final List<DropdownMenuItem<String>> _pricingModels =
+    <DropdownMenuItem<String>>[
+      _item('usage_based', 'Usage based'),
+      _item('per_cluster', 'Per cluster'),
+      _item('per_environment', 'Per environment'),
+      _item('platform_subscription', 'Platform subscription'),
+      _item('committed_spend', 'Committed spend'),
+      _item('custom', 'Custom'),
+    ];
