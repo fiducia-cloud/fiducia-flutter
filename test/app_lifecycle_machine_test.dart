@@ -128,9 +128,8 @@ void main() {
   test('repeated reconnects ignore superseded sync completions', () {
     final machine = _bootReady();
     final epoch = machine.snapshot.authorityEpoch;
-    final first = machine.dispatch(const AppEvent.syncRequested()).effect!;
-
     for (var cycle = 0; cycle < 3; cycle += 1) {
+      final first = machine.dispatch(const AppEvent.syncRequested()).effect!;
       final offline = machine.dispatch(
         const AppEvent.connectivityChanged(false),
       );
