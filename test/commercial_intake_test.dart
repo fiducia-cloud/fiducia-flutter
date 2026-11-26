@@ -89,7 +89,9 @@ void main() {
 
     await tester.pageBack();
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Enterprise application'));
+    final enterprise = find.text('Enterprise application');
+    await reveal(tester, enterprise);
+    await tester.tap(enterprise);
     await tester.pumpAndSettle();
     expect(find.text('Enterprise application'), findsOneWidget);
     expect(find.textContaining('not itself a contract'), findsOneWidget);
