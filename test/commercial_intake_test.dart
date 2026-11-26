@@ -8,7 +8,12 @@ Future<void> reveal(WidgetTester tester, Finder finder) async {
     finder,
     360,
     maxScrolls: 100,
-    scrollable: find.byType(Scrollable).last,
+    scrollable: find
+        .descendant(
+          of: find.byType(ListView),
+          matching: find.byType(Scrollable),
+        )
+        .first,
   );
   await tester.pumpAndSettle();
 }
