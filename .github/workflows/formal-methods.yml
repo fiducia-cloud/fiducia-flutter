@@ -187,6 +187,28 @@ jobs:
       - name: Build native macOS shell
         run: flutter build macos --debug
 
+  newer-toolchain:
+    name: Flutter 3.50 compatibility
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Install Flutter 3.50
+        uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2
+        with:
+          flutter-version: '3.50.0'
+          channel: stable
+          cache: true
+      - name: Resolve SDK-compatible dependencies and test
+        run: |
+          flutter --version
+          flutter pub get
+          git diff -- pubspec.lock
+          flutter analyze
+          flutter test
+
   bounded-verification:
     name: Apalache bounded verification
     if: github.event_name != 'pull_request'
