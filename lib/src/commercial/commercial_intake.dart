@@ -1417,11 +1417,11 @@ final List<DropdownMenuItem<String>> _supportPlans = <DropdownMenuItem<String>>[
 ];
 final List<DropdownMenuItem<String>> _budgetBands = <DropdownMenuItem<String>>[
   _item('unknown', 'Unknown'),
-  _item('under_500_monthly', 'Under $500/month'),
-  _item('monthly_500_2000', '$500–$2,000/month'),
-  _item('monthly_2000_10000', '$2,000–$10,000/month'),
-  _item('monthly_10000_50000', '$10,000–$50,000/month'),
-  _item('monthly_50000_plus', '$50,000+/month'),
+  _item('under_500_monthly', r'Under $500/month'),
+  _item('monthly_500_2000', r'$500–$2,000/month'),
+  _item('monthly_2000_10000', r'$2,000–$10,000/month'),
+  _item('monthly_10000_50000', r'$10,000–$50,000/month'),
+  _item('monthly_50000_plus', r'$50,000+/month'),
   _item('custom_contract', 'Custom contract'),
 ];
 final List<DropdownMenuItem<String>> _startWindows = <DropdownMenuItem<String>>[
