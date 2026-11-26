@@ -36,7 +36,9 @@ void main() {
   testWidgets('commercial action is available from the lifecycle console', (
     tester,
   ) async {
-    await tester.pumpWidget(const FiduciaApp(linkStream: Stream<String>.empty()));
+    await tester.pumpWidget(
+      const FiduciaApp(linkStream: Stream<String>.empty()),
+    );
     await tester.pump();
 
     expect(find.text('Fiducia lifecycle console'), findsOneWidget);
@@ -63,7 +65,9 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Request a quote'), findsOneWidget);
     expect(find.textContaining('non-binding'), findsWidgets);
-    final quoteSubmit = find.byKey(const ValueKey<String>('submit-fiducia-quote'));
+    final quoteSubmit = find.byKey(
+      const ValueKey<String>('submit-fiducia-quote'),
+    );
     await reveal(tester, quoteSubmit);
     expect(quoteSubmit, findsOneWidget);
 
@@ -94,9 +98,7 @@ void main() {
   testWidgets('support page distinguishes SLOs from contractual SLAs', (
     tester,
   ) async {
-    await tester.pumpWidget(
-      const MaterialApp(home: SupportAndContractPage()),
-    );
+    await tester.pumpWidget(const MaterialApp(home: SupportAndContractPage()));
 
     expect(find.text('Engineering SLO'), findsOneWidget);
     expect(find.text('Contractual SLA'), findsOneWidget);
