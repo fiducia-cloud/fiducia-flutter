@@ -125,6 +125,68 @@ void main() {
     expect(machine.snapshot.pendingAction, isNull);
   });
 
+  test('repeated reconnects ignore superseded sync completions', () {
+    final machine = _bootReady();
+    final epoch = machine.snapshot.authorityEpoch;
+    final first = machine.dispatch(const AppEvent.syncRequested()).effect!;
+
+    for (var cycle = 0; cycle < 3; cycle += 1) {
+      final offline = machine.dispatch(
+        const AppEvent.connectivityChanged(false),
+      );
+      expect(offline.after.phase, AppPhase.readyOffline);
+      expect(offline.effect, isNull);
+      final duplicateOffline = machine.dispatch(
+        const AppEvent.connectivityChanged(false),
+      );
+      expect(duplicateOffline.disposition, AppTransitionDisposition.rejected);
+      expect(duplicateOffline.before, duplicateOffline.after);
+      expect(duplicateOffline.effect, isNull);
+
+      final reconnect = machine.dispatch(
+        const AppEvent.connectivityChanged(true),
+      );
+      final sync = reconnect.effect!;
+      expect(sync.kind, AppEffectKind.synchronize);
+      expect(sync.operationId, greaterThan(first.operationId));
+      final stale = machine.dispatch(
+        AppEvent.operationSucceeded(first.operationId),
+      );
+      expect(stale.disposition, AppTransitionDisposition.stale);
+      expect(stale.before, stale.after);
+      expect(stale.effect, isNull);
+      expect(machine.snapshot.authorityEpoch, epoch);
+
+      machine.dispatch(AppEvent.operationSucceeded(sync.operationId));
+      expect(machine.snapshot.phase, AppPhase.readyOnline);
+      final duplicate = machine.dispatch(
+        AppEvent.operationSucceeded(sync.operationId),
+      );
+      expect(duplicate.disposition, AppTransitionDisposition.stale);
+      expect(duplicate.before, duplicate.after);
+      expect(duplicate.effect, isNull);
+      expect(machine.snapshot.validate(), isNull);
+    }
+  });
+
+  test('cancelling confirmation returns to ready without effect', () {
+    final machine = _bootReady();
+    final ready = machine.snapshot;
+    final request = machine.dispatch(
+      const AppEvent.actionRequested('refresh-view'),
+    );
+    expect(request.after.phase, AppPhase.confirmingAction);
+    expect(request.effect, isNull);
+    final cancelled = machine.dispatch(const AppEvent.actionCancelled());
+    expect(cancelled.disposition, AppTransitionDisposition.applied);
+    expect(cancelled.after, ready);
+    expect(cancelled.effect, isNull);
+    final duplicate = machine.dispatch(const AppEvent.actionCancelled());
+    expect(duplicate.disposition, AppTransitionDisposition.rejected);
+    expect(duplicate.before, duplicate.after);
+    expect(duplicate.effect, isNull);
+  });
+
   test('corrupt snapshots fail closed without preserving authority', () {
     const corrupt = AppSnapshot.forInvariantTest(
       phase: AppPhase.readyOnline,
