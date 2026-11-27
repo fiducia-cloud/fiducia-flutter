@@ -122,7 +122,9 @@ val releaseSigningMaterial = if (releaseTaskRequested) {
 
 android {
     namespace = "cloud.fiducia.fiducia_flutter"
-    compileSdk = flutter.compileSdkVersion
+    // Google Play requires Android 16 / API 36 for new apps and updates submitted
+    // after 2026-08-31. Pin this store contract instead of inheriting a moving default.
+    compileSdk = 36
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
@@ -133,7 +135,7 @@ android {
     defaultConfig {
         applicationId = "cloud.fiducia.fiducia_flutter"
         minSdk = flutter.minSdkVersion
-        targetSdk = flutter.targetSdkVersion
+        targetSdk = 36
         versionCode = flutter.versionCode
         versionName = flutter.versionName
     }
